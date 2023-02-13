@@ -5,6 +5,10 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Pt
 from data_engine import templates
 
+def delete_paragraph(paragraph):
+    p = paragraph._element
+    p.getparent().remove(p)
+    p._p = p._element = None
 
 def cell_style(cell, size):
     paragra_ph = cell.paragraphs[0]
@@ -39,26 +43,36 @@ def unload(parametr, df_table_list_positions, df_ol_table):
         for _ in range(0, len(cells)):
             cell = cells[_]
             cell.text = str(row.iloc[_])
-            cell_style(cell, 8)
+            cell_style(cell, 10)
 
     ol_table = document.tables[-1]
+    last_humans_paragraph = document.paragraphs[-2]
 
     for index, row in df_ol_table.iterrows():
         document.add_page_break()
-        paragraph = document.add_paragraph()
+        # paragraph = document.add_paragraph()
+        paragraph = document.paragraphs[-1]
         paragraph._p.addnext(deepcopy(ol_table._tbl))
         cur_table = document.tables[-1]
         for item in templates[parametr].keys():
-            cell = cur_table.cell(*templates[parametr][item])
+            n_row, n_col = templates[parametr][item]
+            cell = cur_table.cell(n_row, n_col)
             cell.text = str(row[item])
-            if templates[parametr][item][1] == 5:
+            if n_col > 4:
                 cell_style(cell, 10)
     ol_table._element.getparent().remove(ol_table._element)
+    delete_paragraph(last_humans_paragraph)
+
+    document_env = Document(f'Шаблоны/ОЛ/Среды.docx')
+    table_env = document_env.tables[-1]
+
+    document.add_page_break()
+    paragraph = document.add_paragraph('Приложение 1')
+
+    paragraph.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
+    paragraph._p.addnext(deepcopy(table_env._tbl))
+
 
     document.save(f'Выгрузка/Опросные листы/{savePath}.docx')
 
 
-unload('Температура', *getTemptureForOL())
-unload('Давление', *getPressureForOL())
-unload('Расход', *getFlowForOL())
-unload('Уровень', *getLevelForOL())
